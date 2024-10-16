@@ -1,4 +1,4 @@
-module github.com/ottodono/todo-cli
+module github.com/ottodono/task-cli
 
 go 1.23
 

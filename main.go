@@ -4,19 +4,21 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/mergestat/timediff"
 	"os"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
-	uuid "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 const (
-	FILE_NAME string = "todo.csv"
+	FileName string = "todo.csv"
 )
 
-// Structures
+// Task Structures
 type Task struct {
 	id          string
 	content     string
@@ -53,10 +55,6 @@ func (task *Task) Complete() {
 	task.complete = true
 }
 
-func (task *Task) Afficher() {
-	fmt.Printf("%s %s %s %t\n", task.id, task.content, formatTimeToString(task.createdDate), task.complete)
-}
-
 // Date
 func formatTimeToString(date time.Time) string {
 	str := date.Format(time.RFC3339)
@@ -69,6 +67,25 @@ func formatStringToTime(str string) time.Time {
 		fmt.Println("Could not parse time:", err)
 	}
 	return date
+}
+
+func DisplayTask(tasks []Task) {
+	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	_, err := fmt.Fprintln(writer, "ID\tTask\tCreated\tDone")
+	if err != nil {
+		return
+	}
+	for _, task := range tasks {
+		timeToDisplay := timediff.TimeDiff(task.GetCreatedDate())
+		_, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%t\n", task.GetId(), task.GetContent(), timeToDisplay, task.GetComplete())
+		if err != nil {
+			return
+		}
+	}
+	err = writer.Flush()
+	if err != nil {
+		return
+	}
 }
 
 // Main
@@ -87,23 +104,27 @@ func main() {
 			id := strings.Split(uuid.NewString(), "-")[0]
 			content := os.Args[2]
 			task := NewTask(id, content, time.Now(), false)
-			save(task)
+			err := save(task)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 		}
 	} else if command == "list" {
 		tasks, err := findAll()
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		for _, task := range tasks {
-			task.Afficher()
-		}
+		DisplayTask(tasks)
 	} else if command == "delete" {
 		if len(os.Args) < 3 {
 			fmt.Println("Not enough arguments for the command add")
 			return
 		} else {
 			id := os.Args[2]
-			deleteTask(id)
+			err := deleteTask(id)
+			if err != nil {
+				fmt.Print(err.Error())
+			}
 		}
 	} else if command == "complete" {
 		if len(os.Args) < 3 {
@@ -111,7 +132,10 @@ func main() {
 			return
 		} else {
 			id := os.Args[2]
-			completeTask(id)
+			err := completeTask(id)
+			if err != nil {
+				fmt.Print(err.Error())
+			}
 		}
 	} else {
 		fmt.Println("Unknown command.")
@@ -135,11 +159,13 @@ func save(task *Task) error {
 func saveAll(tasks []Task) error {
 	records := tasksToRecords(tasks)
 
-	file, err := loadFile(FILE_NAME)
+	file, err := loadFile(FileName)
 	if err != nil {
 		return err
 	}
-	defer closeFile(file)
+	defer func(f *os.File) {
+		_ = closeFile(f)
+	}(file)
 
 	if err := file.Truncate(0); err != nil {
 		return err
@@ -165,11 +191,13 @@ func saveAll(tasks []Task) error {
 }
 
 func findAll() ([]Task, error) {
-	file, err := loadFile(FILE_NAME)
+	file, err := loadFile(FileName)
 	if err != nil {
 		return nil, err
 	}
-	defer closeFile(file)
+	defer func(f *os.File) {
+		_ = closeFile(f)
+	}(file)
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
@@ -195,7 +223,7 @@ func deleteTask(id string) error {
 		}
 	}
 	if index == -1 {
-		return errors.New("Task with the id not found")
+		return errors.New("task with the id not found")
 	}
 
 	tasks = remove(tasks, index)
@@ -220,12 +248,15 @@ func completeTask(id string) error {
 		}
 	}
 	if index == -1 {
-		return errors.New("Task with the id not found")
+		return errors.New("task with the id not found")
 	}
 
 	tasks[index].Complete()
 
-	saveAll(tasks)
+	err = saveAll(tasks)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -301,6 +332,9 @@ func loadFile(filepath string) (*os.File, error) {
 }
 
 func closeFile(f *os.File) error {
-	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	if err != nil {
+		return err
+	}
 	return f.Close()
 }

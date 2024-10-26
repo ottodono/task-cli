@@ -4,9 +4,11 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/mergestat/timediff"
 	"os"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,10 +55,6 @@ func (task *Task) Complete() {
 	task.complete = true
 }
 
-func (task *Task) Afficher() {
-	fmt.Printf("%s %s %s %t\n", task.id, task.content, formatTimeToString(task.createdDate), task.complete)
-}
-
 // Date
 func formatTimeToString(date time.Time) string {
 	str := date.Format(time.RFC3339)
@@ -69,6 +67,16 @@ func formatStringToTime(str string) time.Time {
 		fmt.Println("Could not parse time:", err)
 	}
 	return date
+}
+
+func DisplayTask(tasks []Task) {
+	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(writer, "ID\tTask\tCreated\tDone")
+	for _, task := range tasks {
+		timeToDisplay := timediff.TimeDiff(task.GetCreatedDate())
+		fmt.Fprintf(writer, "%s\t%s\t%s\t%t\n", task.GetId(), task.GetContent(), timeToDisplay, task.GetComplete())
+	}
+	writer.Flush()
 }
 
 // Main
@@ -97,9 +105,7 @@ func main() {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-		for _, task := range tasks {
-			task.Afficher()
-		}
+		DisplayTask(tasks)
 	} else if command == "delete" {
 		if len(os.Args) < 3 {
 			fmt.Println("Not enough arguments for the command add")

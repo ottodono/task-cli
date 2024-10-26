@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	uuid "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 const (
-	FILE_NAME string = "todo.csv"
+	FileName string = "todo.csv"
 )
 
-// Structures
+// Task Structures
 type Task struct {
 	id          string
 	content     string
@@ -87,7 +87,10 @@ func main() {
 			id := strings.Split(uuid.NewString(), "-")[0]
 			content := os.Args[2]
 			task := NewTask(id, content, time.Now(), false)
-			save(task)
+			err := save(task)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 		}
 	} else if command == "list" {
 		tasks, err := findAll()
@@ -103,7 +106,10 @@ func main() {
 			return
 		} else {
 			id := os.Args[2]
-			deleteTask(id)
+			err := deleteTask(id)
+			if err != nil {
+				fmt.Print(err.Error())
+			}
 		}
 	} else if command == "complete" {
 		if len(os.Args) < 3 {
@@ -111,7 +117,10 @@ func main() {
 			return
 		} else {
 			id := os.Args[2]
-			completeTask(id)
+			err := completeTask(id)
+			if err != nil {
+				fmt.Print(err.Error())
+			}
 		}
 	} else {
 		fmt.Println("Unknown command.")
@@ -135,11 +144,13 @@ func save(task *Task) error {
 func saveAll(tasks []Task) error {
 	records := tasksToRecords(tasks)
 
-	file, err := loadFile(FILE_NAME)
+	file, err := loadFile(FileName)
 	if err != nil {
 		return err
 	}
-	defer closeFile(file)
+	defer func(f *os.File) {
+		_ = closeFile(f)
+	}(file)
 
 	if err := file.Truncate(0); err != nil {
 		return err
@@ -165,11 +176,13 @@ func saveAll(tasks []Task) error {
 }
 
 func findAll() ([]Task, error) {
-	file, err := loadFile(FILE_NAME)
+	file, err := loadFile(FileName)
 	if err != nil {
 		return nil, err
 	}
-	defer closeFile(file)
+	defer func(f *os.File) {
+		_ = closeFile(f)
+	}(file)
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
@@ -195,7 +208,7 @@ func deleteTask(id string) error {
 		}
 	}
 	if index == -1 {
-		return errors.New("Task with the id not found")
+		return errors.New("task with the id not found")
 	}
 
 	tasks = remove(tasks, index)
@@ -220,12 +233,15 @@ func completeTask(id string) error {
 		}
 	}
 	if index == -1 {
-		return errors.New("Task with the id not found")
+		return errors.New("task with the id not found")
 	}
 
 	tasks[index].Complete()
 
-	saveAll(tasks)
+	err = saveAll(tasks)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -301,6 +317,9 @@ func loadFile(filepath string) (*os.File, error) {
 }
 
 func closeFile(f *os.File) error {
-	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	if err != nil {
+		return err
+	}
 	return f.Close()
 }

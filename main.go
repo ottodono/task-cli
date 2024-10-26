@@ -71,12 +71,21 @@ func formatStringToTime(str string) time.Time {
 
 func DisplayTask(tasks []Task) {
 	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(writer, "ID\tTask\tCreated\tDone")
+	_, err := fmt.Fprintln(writer, "ID\tTask\tCreated\tDone")
+	if err != nil {
+		return
+	}
 	for _, task := range tasks {
 		timeToDisplay := timediff.TimeDiff(task.GetCreatedDate())
-		fmt.Fprintf(writer, "%s\t%s\t%s\t%t\n", task.GetId(), task.GetContent(), timeToDisplay, task.GetComplete())
+		_, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%t\n", task.GetId(), task.GetContent(), timeToDisplay, task.GetComplete())
+		if err != nil {
+			return
+		}
 	}
-	writer.Flush()
+	err = writer.Flush()
+	if err != nil {
+		return
+	}
 }
 
 // Main

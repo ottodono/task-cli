@@ -24,59 +24,71 @@ func main() {
 
 func handleCommand(taskService core.TaskService) {
 	if len(os.Args) < 2 {
-		fmt.Println("Not enough arguments")
-		return
+		fmt.Println("not enough arguments")
 	}
 
 	command := os.Args[1]
-	if command == "add" {
-		if len(os.Args) < 3 {
-			fmt.Println("Not enough arguments for the command add")
-			return
-		} else {
-			id := strings.Split(uuid.NewString(), "-")[0]
-			content := os.Args[2]
-			task := core.NewTask(id, content, time.Now(), false)
-			_, err := taskService.Save(*task)
-			if err != nil {
-				fmt.Print(err.Error())
-			}
-		}
-	} else if command == "list" {
-		tasks, err := taskService.FindAll()
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		displayTask(tasks)
-	} else if command == "delete" {
-		if len(os.Args) < 3 {
-			fmt.Println("Not enough arguments for the command add")
-			return
-		} else {
-			id := os.Args[2]
-			err := taskService.DeleteById(id)
-			if err != nil {
-				fmt.Print(err.Error())
-			}
-		}
-	} else if command == "complete" {
-		if len(os.Args) < 3 {
-			fmt.Println("Not enough arguments for the command add")
-			return
-		} else {
-			id := os.Args[2]
-			err := taskService.Complete(id)
-			if err != nil {
-				fmt.Print(err.Error())
-			}
-		}
-	} else {
-		fmt.Println("Unknown command.")
-		return
+	switch command {
+	case "list":
+		handleListCommand(taskService)
+	case "add":
+		handleAddCommand(taskService)
+	case "complete":
+		handleCompleteCommand(taskService)
+	case "delete":
+		handleDeleteCommand(taskService)
+	default:
+		fmt.Println("unknown command")
 	}
 }
 
-func displayTask(tasks []core.Task) {
+func handleListCommand(taskService core.TaskService) {
+	tasks, err := taskService.FindAll()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	displayTasks(tasks)
+}
+
+func handleAddCommand(taskService core.TaskService) {
+	if len(os.Args) < 3 {
+		fmt.Println("not enough arguments for the command add")
+	} else {
+		id := strings.Split(uuid.NewString(), "-")[0]
+		arg := os.Args[2]
+		task := core.NewTask(id, arg, time.Now(), false)
+		_, err := taskService.Save(*task)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
+}
+
+func handleCompleteCommand(taskService core.TaskService) {
+	if len(os.Args) < 3 {
+		fmt.Println("not enough arguments for the command complete")
+	} else {
+		id := os.Args[2]
+		err := taskService.Complete(id)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
+}
+
+func handleDeleteCommand(taskService core.TaskService) {
+	if len(os.Args) < 3 {
+		fmt.Println("not enough arguments for the command delete")
+	} else {
+		id := os.Args[2]
+		err := taskService.DeleteById(id)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}
+}
+
+func displayTasks(tasks []core.Task) {
 	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	_, err := fmt.Fprintln(writer, "ID\tTask\tCreated\tDone")
 	if err != nil {

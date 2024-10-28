@@ -1,0 +1,19 @@
+{
+    "baseBranches": [
+        "main"
+    ],
+    "assignees": [
+        "ottodono"
+    ],
+    "semanticCommitScope": "chore(dependency):",
+    "labels": [
+        "importance/low",
+        "difficulty/low",
+        "process/needs-review",
+        "type/feature",
+        "dependency"
+    ],
+    "gomod": {
+        "enabled": true
+    }
+}
